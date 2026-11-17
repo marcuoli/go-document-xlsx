@@ -25,10 +25,27 @@ func Validate(ctx context.Context, path string, expected []table.Sheet) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Preserve the slice API's early model validation before touching the file.
 	for _, sheet := range expected {
 		if err := table.Validate(sheet); err != nil {
 			return err
 		}
+	}
+	return ValidateSource(ctx, path, table.FromSheets(expected))
+}
+
+// ValidateSource checks the same exact package contract as Validate while
+// consuming one borrowed expected sheet at a time without retaining its model.
+// It visits expected once, in workbook order; empty, missing, extra, reordered or
+// case-duplicate sheets and any producer error or cancellation invalidate the
+// result. Actual worksheet and shared-string decoding remains materialized within
+// the existing 32 MiB compressed, 128 MiB expanded and 2,048 ZIP-part limits.
+func ValidateSource(ctx context.Context, path string, expected table.Source) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if expected == nil {
+		return errors.New("expected worksheet source is required")
 	}
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() > maxWorkbookSize {
@@ -93,9 +110,6 @@ func Validate(ctx context.Context, path string, expected []table.Sheet) error {
 			}
 		}
 	}
-	if len(expected) == 0 {
-		return errors.New("expected worksheet set is empty")
-	}
 	var contentTypes struct {
 		Overrides []struct {
 			PartName    string `xml:"PartName,attr"`
@@ -148,9 +162,6 @@ func Validate(ctx context.Context, path string, expected []table.Sheet) error {
 	if err != nil {
 		return err
 	}
-	if len(parts) != len(expected) {
-		return errors.New("saved worksheet set differs")
-	}
 	var book struct {
 		Sheets []struct {
 			Name string `xml:"name,attr"`
@@ -176,12 +187,16 @@ func Validate(ctx context.Context, path string, expected []table.Sheet) error {
 		}
 	}
 	seen := map[string]bool{}
-	for index, sheet := range expected {
+	index := 0
+	if err := expected.Visit(ctx, func(sheet table.Sheet) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if err := table.Validate(sheet); err != nil {
 			return err
+		}
+		if index >= len(book.Sheets) || index >= len(parts) {
+			return errors.New("saved worksheet set differs")
 		}
 		key := strings.ToLower(sheet.Name)
 		if seen[key] || book.Sheets[index].Name != sheet.Name {
@@ -270,6 +285,16 @@ func Validate(ctx context.Context, path string, expected []table.Sheet) error {
 				return errors.New("saved worksheet contains unexpected cells")
 			}
 		}
+		index++
+		return nil
+	}); err != nil {
+		return err
+	}
+	if index == 0 {
+		return errors.New("expected worksheet set is empty")
+	}
+	if index != len(parts) || index != len(book.Sheets) {
+		return errors.New("saved worksheet set differs")
 	}
 	return nil
 }

@@ -18,6 +18,16 @@ type Save func(*os.File) error
 // It never publishes a failed, cancelled, incomplete or value-altered workbook.
 // The parent directory must exist. Evidence remains the caller's responsibility.
 func Publish(ctx context.Context, path string, overwrite bool, save Save, expected []table.Sheet) (installed bool, returnedErr error) {
+	return PublishSource(ctx, path, overwrite, save, table.FromSheets(expected))
+}
+
+// PublishSource validates one borrowed expected sheet at a time before atomic
+// installation, using the same staging and cleanup contract as Publish. It visits
+// expected once after save completes; the producer must replay the saved content
+// deterministically. Late source errors, visitor failures and cancellation abort
+// installation and remove the stage, preserving an existing destination. Actual
+// package decoding retains ValidateSource's documented bounds and memory scope.
+func PublishSource(ctx context.Context, path string, overwrite bool, save Save, expected table.Source) (installed bool, returnedErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -55,7 +65,7 @@ func Publish(ctx context.Context, path string, overwrite bool, save Save, expect
 		return false, err
 	}
 	closed = true
-	if err := validation.Validate(ctx, staging.Name(), expected); err != nil {
+	if err := validation.ValidateSource(ctx, staging.Name(), expected); err != nil {
 		return false, err
 	}
 	if err := ctx.Err(); err != nil {

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.0
+
+- Add synchronous replayable worksheet sources and adapters, preserving borrowed-buffer ownership and propagating source, visitor and cancellation failures.
+- Validate and atomically publish one expected sheet projection at a time through existing exact package checks and unchanged limits.
+- Add deterministic Unicode-safe partition names with full-name hash suffixes for bounded long identities.
+
 ## v0.2.0
 
 - Add explicit precision-bounded numeric cell payloads and an optional backend contract, retaining literal text defaults.

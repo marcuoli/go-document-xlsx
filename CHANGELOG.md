@@ -5,6 +5,7 @@
 - Add synchronous replayable worksheet sources and adapters, preserving borrowed-buffer ownership and propagating source, visitor and cancellation failures.
 - Validate and atomically publish one expected sheet projection at a time through existing exact package checks and unchanged limits.
 - Add deterministic Unicode-safe partition names with full-name hash suffixes for bounded long identities.
+- Preserve legacy slice-publication saver/model/package error precedence and typed capacity errors.
 
 ## v0.2.0
 

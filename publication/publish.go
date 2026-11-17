@@ -18,7 +18,9 @@ type Save func(*os.File) error
 // It never publishes a failed, cancelled, incomplete or value-altered workbook.
 // The parent directory must exist. Evidence remains the caller's responsibility.
 func Publish(ctx context.Context, path string, overwrite bool, save Save, expected []table.Sheet) (installed bool, returnedErr error) {
-	return PublishSource(ctx, path, overwrite, save, table.FromSheets(expected))
+	return publish(ctx, path, overwrite, save, func(stage string) error {
+		return validation.Validate(ctx, stage, expected)
+	})
 }
 
 // PublishSource validates one borrowed expected sheet at a time before atomic
@@ -28,6 +30,14 @@ func Publish(ctx context.Context, path string, overwrite bool, save Save, expect
 // installation and remove the stage, preserving an existing destination. Actual
 // package decoding retains ValidateSource's documented bounds and memory scope.
 func PublishSource(ctx context.Context, path string, overwrite bool, save Save, expected table.Source) (installed bool, returnedErr error) {
+	return publish(ctx, path, overwrite, save, func(stage string) error {
+		return validation.ValidateSource(ctx, stage, expected)
+	})
+}
+
+// Each API selects its validator after the saver and stage close. This preserves
+// legacy slice-model error precedence without preempting saver/staging failures.
+func publish(ctx context.Context, path string, overwrite bool, save Save, validate func(string) error) (installed bool, returnedErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -65,7 +75,7 @@ func PublishSource(ctx context.Context, path string, overwrite bool, save Save, 
 		return false, err
 	}
 	closed = true
-	if err := validation.ValidateSource(ctx, staging.Name(), expected); err != nil {
+	if err := validate(staging.Name()); err != nil {
 		return false, err
 	}
 	if err := ctx.Err(); err != nil {

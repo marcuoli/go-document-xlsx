@@ -3,11 +3,13 @@ package publication_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/marcuoli/go-xlsx-report/cell"
 	"github.com/marcuoli/go-xlsx-report/internal/testbook"
 	"github.com/marcuoli/go-xlsx-report/publication"
 	"github.com/marcuoli/go-xlsx-report/table"
@@ -88,5 +90,47 @@ func TestNestedNumericContentCannotReplaceInstalledWorkbook(t *testing.T) {
 	retained, err := os.ReadFile(path)
 	if err != nil || string(retained) != string(original) {
 		t.Fatal("failed numeric validation changed installed workbook")
+	}
+}
+
+func TestPublishSlicePreservesModelAndSaveErrorPrecedence(t *testing.T) {
+	sheets := []table.Sheet{{Name: "Values", Headers: []string{"Value"}, Rows: [][]string{{strings.Repeat("x", cell.MaximumTextUnits+1)}}}}
+	failure := errors.New("save failed after writing invalid bytes")
+	for _, saveFails := range []bool{false, true} {
+		t.Run(fmt.Sprintf("save-fails=%v", saveFails), func(t *testing.T) {
+			directory := t.TempDir()
+			path := filepath.Join(directory, "report.xlsx")
+			original := []byte("previous installed bytes")
+			if err := os.WriteFile(path, original, 0600); err != nil {
+				t.Fatal(err)
+			}
+			saved := false
+			installed, err := publication.Publish(t.Context(), path, true, func(file *os.File) error {
+				saved = true
+				if _, err := file.WriteString("not a ZIP"); err != nil {
+					return err
+				}
+				if saveFails {
+					return failure
+				}
+				return nil
+			}, sheets)
+			if installed || !saved {
+				t.Fatalf("installation=%v, saver called=%v, error=%v", installed, saved, err)
+			}
+			var capacity *cell.CapacityError
+			if saveFails {
+				if !errors.Is(err, failure) || errors.As(err, &capacity) {
+					t.Fatalf("save error precedence changed: %v", err)
+				}
+			} else if !errors.As(err, &capacity) || capacity.Sheet != "Values" || capacity.Cell != "A2" || capacity.MeasuredUnits != cell.MaximumTextUnits+1 {
+				t.Fatalf("typed model error lost behind invalid ZIP: %v", err)
+			}
+			actual, readErr := os.ReadFile(path)
+			entries, dirErr := os.ReadDir(directory)
+			if readErr != nil || string(actual) != string(original) || dirErr != nil || len(entries) != 1 || entries[0].Name() != "report.xlsx" {
+				t.Fatalf("destination/stage changed: content=%q, entries=%v, errors=%v/%v", actual, entries, readErr, dirErr)
+			}
+		})
 	}
 }

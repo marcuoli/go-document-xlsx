@@ -6,7 +6,7 @@ $saved=@{}; foreach($key in $settings){$saved[$key]=[Environment]::GetEnvironmen
 function Invoke-Go([string[]]$Arguments){ & $GoExecutable @Arguments; if($LASTEXITCODE -ne 0){throw "go $($Arguments -join ' ') failed ($LASTEXITCODE)"} }
 $base=if($env:DEVELOPMENT_ROOT){$env:DEVELOPMENT_ROOT}elseif($env:RUNNER_TEMP){Join-Path $env:RUNNER_TEMP 'development'}else{'V:\Development'}
 if(-not(Test-Path -LiteralPath $base) -and -not $env:RUNNER_TEMP){throw 'Development storage is unavailable; set DEVELOPMENT_ROOT to an approved external directory.'}
-$project=Join-Path $base 'go-xlsx-report';$runID=[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-ffff')
+$project=Join-Path $base 'go-document-xlsx';$runID=[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-ffff')
 $scratch=Join-Path $project "tmp\validate-$runID";$output=Join-Path $project "artifacts\runs\validate-$runID"
 Push-Location (Split-Path -Parent $PSScriptRoot)
 try {
@@ -21,7 +21,7 @@ try {
     if($LASTEXITCODE -ne 0 -or $unformatted.Count -ne 0){throw "Formatting required: $unformatted"}
     Invoke-Go -Arguments @('test','-count=1','./...');Invoke-Go -Arguments @('vet','./...');Invoke-Go -Arguments @('mod','verify');Invoke-Go -Arguments @('build','./...')
     if($Race){$env:CGO_ENABLED='1';try{Invoke-Go -Arguments @('test','-race','-count=1','./...')}finally{$env:CGO_ENABLED='0'}}
-    $binary=Join-Path $output 'go-xlsx-report.test.exe';Invoke-Go -Arguments @('test','-c','-trimpath','-buildvcs=false','-o',$binary,'./publication')
+    $binary=Join-Path $output 'go-document-xlsx.test.exe';Invoke-Go -Arguments @('test','-c','-trimpath','-buildvcs=false','-o',$binary,'./publication')
     & $GoExecutable version -m $binary | Set-Content -LiteralPath (Join-Path $output 'build-metadata.txt');if($LASTEXITCODE -ne 0){throw 'Metadata inspection failed'}
     & $GoExecutable env -json GOVERSION GOOS GOARCH GOFLAGS CGO_ENABLED GOWORK | Set-Content -LiteralPath (Join-Path $output 'build-settings.json');if($LASTEXITCODE -ne 0){throw 'Build settings inspection failed'}
     & $GoExecutable list -m -json all | Set-Content -LiteralPath (Join-Path $output 'modules.json');if($LASTEXITCODE -ne 0){throw 'Module graph inspection failed'}

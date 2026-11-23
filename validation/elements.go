@@ -3,7 +3,7 @@ package validation
 import (
 	"encoding/xml"
 	"errors"
-	"github.com/marcuoli/go-xlsx-report/cell"
+	"github.com/marcuoli/go-document-xlsx/cell"
 	"strconv"
 	"strings"
 )

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcuoli/go-xlsx-report/cell"
-	"github.com/marcuoli/go-xlsx-report/layout"
-	"github.com/marcuoli/go-xlsx-report/table"
+	"github.com/marcuoli/go-document-xlsx/cell"
+	"github.com/marcuoli/go-document-xlsx/layout"
+	"github.com/marcuoli/go-document-xlsx/table"
 )
 
 type backend struct {

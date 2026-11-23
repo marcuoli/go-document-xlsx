@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/marcuoli/go-atomicfile/atomicfile"
-	"github.com/marcuoli/go-xlsx-report/table"
-	"github.com/marcuoli/go-xlsx-report/validation"
+	"github.com/marcuoli/go-document-xlsx/table"
+	"github.com/marcuoli/go-document-xlsx/validation"
 )
 
 // Save writes a workbook to the caller-owned staging file without closing it.

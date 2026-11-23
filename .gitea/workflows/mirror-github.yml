@@ -122,7 +122,7 @@ jobs:
           fi
           # An atomic, ordinary push rejects divergent branches and changed tags.
           git -c core.hooksPath=/dev/null push --atomic --porcelain -- \
-            git@github.com:marcuoli/go-xlsx-report.git "${refspecs[@]}"
+            git@github.com:marcuoli/go-document-xlsx.git "${refspecs[@]}"
 
       - name: Remove temporary source CA bundle
         if: always()

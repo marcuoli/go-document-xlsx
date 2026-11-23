@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 base="${DEVELOPMENT_ROOT:-${RUNNER_TEMP:+$RUNNER_TEMP/development}}"
 if [[ -z "$base" ]]; then base=/mnt/v/Development; fi
 if [[ ! -d "$base" && -z "${RUNNER_TEMP:-}" ]]; then printf 'Approved development storage is unavailable.\n' >&2; exit 1; fi
-project="$base/go-xlsx-report"; run="$(date -u +%Y%m%d-%H%M%S)-$$"
+project="$base/go-document-xlsx"; run="$(date -u +%Y%m%d-%H%M%S)-$$"
 export TMPDIR="$project/tmp/validate-$run" TEMP="$project/tmp/validate-$run" TMP="$project/tmp/validate-$run"
 export GOTMPDIR="$TMPDIR/go-build" GOCACHE="$project/caches/go-build" GOMODCACHE="$project/caches/go-modules"
 output="$project/artifacts/runs/validate-$run"
@@ -24,12 +24,12 @@ go vet ./...
 go mod verify
 go build ./...
 if $race; then CGO_ENABLED=1 go test -race -count=1 ./...; fi
-go test -c -trimpath -buildvcs=false -o "$output/go-xlsx-report.test" ./publication
-go version -m "$output/go-xlsx-report.test" > "$output/build-metadata.txt"
+go test -c -trimpath -buildvcs=false -o "$output/go-document-xlsx.test" ./publication
+go version -m "$output/go-document-xlsx.test" > "$output/build-metadata.txt"
 go env -json GOVERSION GOOS GOARCH GOFLAGS CGO_ENABLED GOWORK > "$output/build-settings.json"
 go list -m -json all > "$output/modules.json"
 if $scan; then
   go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
-  go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -mode=binary "$output/go-xlsx-report.test"
+  go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -mode=binary "$output/go-document-xlsx.test"
 fi
 printf 'Validation passed. Evidence: %s\n' "$output"

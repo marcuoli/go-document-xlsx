@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcuoli/go-xlsx-report/cell"
-	"github.com/marcuoli/go-xlsx-report/internal/testbook"
-	"github.com/marcuoli/go-xlsx-report/publication"
-	"github.com/marcuoli/go-xlsx-report/table"
+	"github.com/marcuoli/go-document-xlsx/cell"
+	"github.com/marcuoli/go-document-xlsx/internal/testbook"
+	"github.com/marcuoli/go-document-xlsx/publication"
+	"github.com/marcuoli/go-document-xlsx/table"
 )
 
 func TestFailedValidationPreservesInstalledWorkbook(t *testing.T) {

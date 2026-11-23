@@ -2,7 +2,7 @@ package cell_test
 
 import (
 	"fmt"
-	"github.com/marcuoli/go-xlsx-report/cell"
+	"github.com/marcuoli/go-document-xlsx/cell"
 	"testing"
 )
 

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/marcuoli/go-xlsx-report/table"
+	"github.com/marcuoli/go-document-xlsx/table"
 )
 
 func TestSourceVisitRetainsRejectedPrefix(t *testing.T) {

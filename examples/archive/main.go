@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/marcuoli/go-xlsx-report/zipio"
+	"github.com/marcuoli/go-document-xlsx/zipio"
 )
 
 func main() {

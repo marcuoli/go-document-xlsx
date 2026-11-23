@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcuoli/go-xlsx-report/table"
+	"github.com/marcuoli/go-document-xlsx/table"
 )
 
 func escaped(value string) string {

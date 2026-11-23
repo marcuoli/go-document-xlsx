@@ -9,8 +9,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/marcuoli/go-xlsx-report/cell"
-	"github.com/marcuoli/go-xlsx-report/layout"
+	"github.com/marcuoli/go-document-xlsx/cell"
+	"github.com/marcuoli/go-document-xlsx/layout"
 )
 
 // Backend supplies workbook operations. The adapter owns native style objects.

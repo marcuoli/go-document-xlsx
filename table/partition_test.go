@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/marcuoli/go-xlsx-report/table"
+	"github.com/marcuoli/go-document-xlsx/table"
 )
 
 func TestPartitionNamePreservesIdentityAndBounds(t *testing.T) {

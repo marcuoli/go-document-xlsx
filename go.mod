@@ -1,4 +1,4 @@
-module github.com/marcuoli/go-xlsx-report
+module github.com/marcuoli/go-document-xlsx
 
 go 1.27.3
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcuoli/go-xlsx-report/internal/testbook"
-	"github.com/marcuoli/go-xlsx-report/table"
-	"github.com/marcuoli/go-xlsx-report/validation"
+	"github.com/marcuoli/go-document-xlsx/internal/testbook"
+	"github.com/marcuoli/go-document-xlsx/table"
+	"github.com/marcuoli/go-document-xlsx/validation"
 )
 
 func sourceSheets() []table.Sheet {

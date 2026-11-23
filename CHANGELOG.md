@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.0
+
+- Rename the module to github.com/marcuoli/go-document-xlsx. Update the module requirement and the path prefix in consumer imports. Package APIs and workbook behavior are unchanged.
+
 ## v0.3.0
 
 - Add synchronous replayable worksheet sources and adapters, preserving borrowed-buffer ownership and propagating source, visitor and cancellation failures.

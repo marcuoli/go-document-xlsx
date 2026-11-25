@@ -35,6 +35,16 @@ func PublishSource(ctx context.Context, path string, overwrite bool, save Save, 
 	})
 }
 
+// PublishRows validates a workbook against a replayable, ordered row source.
+// It uses the same staging and atomic installation as Publish. Validation visits
+// the source once after saving, so producers must replay the saved rows exactly.
+// A source error or cancellation preserves the destination and removes the stage.
+func PublishRows(ctx context.Context, path string, overwrite bool, save Save, expected table.RowSheets) (bool, error) {
+	return publish(ctx, path, overwrite, save, func(stage string) error {
+		return validation.ValidateRows(ctx, stage, expected)
+	})
+}
+
 // Each API selects its validator after the saver and stage close. This preserves
 // legacy slice-model error precedence without preempting saver/staging failures.
 func publish(ctx context.Context, path string, overwrite bool, save Save, validate func(string) error) (installed bool, returnedErr error) {

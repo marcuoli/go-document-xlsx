@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.0
+
+- Add replayable worksheet body rows with explicit per-row numeric values and adapters for existing sheet snapshots.
+- Validate and atomically publish streamed worksheets one row at a time with bounded ZIP metadata and exact saved-value checks. Existing APIs retain their limits.
+
 ## v0.4.0
 
 - Rename the module to github.com/marcuoli/go-document-xlsx. Update the module requirement and the path prefix in consumer imports. Package APIs and workbook behavior are unchanged.

@@ -12,19 +12,12 @@ import (
 	"strings"
 )
 
-// compressedBounds rejects member extents outside their local record or directory.
-// ZIP64 member sizes remain supported by archive/zip; a directory requiring more
-// than 32-bit offsets cannot occur within this validator's 32 MiB file bound.
-func compressedBounds(path string, size int64, entries []*zip.File) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+// ZIP64 worksheet member sizes are supported within ordinary directory offsets.
+func directoryExtent(file *os.File, size int64, generatedOnly bool) (directory, directorySize, base int64, members int, err error) {
 	tailSize := min(size, int64(65535+22))
 	tail := make([]byte, int(tailSize))
 	if _, err := file.ReadAt(tail, size-tailSize); err != nil {
-		return err
+		return 0, 0, 0, 0, err
 	}
 	end := -1
 	for i := len(tail) - 22; i >= 0; i-- {
@@ -34,32 +27,78 @@ func compressedBounds(path string, size int64, entries []*zip.File) error {
 		}
 	}
 	if end < 0 {
-		return errors.New("ZIP directory footer is missing")
+		return 0, 0, 0, 0, errors.New("ZIP directory footer is missing")
 	}
-	directorySize := int64(binary.LittleEndian.Uint32(tail[end+12:]))
+	if generatedOnly && end+22 != len(tail) {
+		return 0, 0, 0, 0, errors.New("XLSX directory comment is outside the streaming profile")
+	}
+	directorySize = int64(binary.LittleEndian.Uint32(tail[end+12:]))
 	relative := int64(binary.LittleEndian.Uint32(tail[end+16:]))
 	if directorySize == 0xffffffff || relative == 0xffffffff {
-		return errors.New("ZIP directory exceeds bounded workbook offsets")
+		return 0, 0, 0, 0, errors.New("ZIP directory exceeds bounded workbook offsets")
 	}
-	directory := size - tailSize + int64(end) - directorySize
-	base := directory - relative
+	directory = size - tailSize + int64(end) - directorySize
+	base = directory - relative
 	if directory < 0 || base < 0 {
-		return errors.New("ZIP directory bounds differ")
+		return 0, 0, 0, 0, errors.New("ZIP directory bounds differ")
 	}
+	return directory, directorySize, base, int(binary.LittleEndian.Uint16(tail[end+10:])), nil
+}
+
+// The streaming profile admits unprefixed packages without a ZIP comment.
+// This guarantees archive/zip opens the same directory preflight inspected.
+func checkDirectorySize(file *os.File, directory, length, base int64, members int) error {
+	if base != 0 {
+		return errors.New("XLSX directory offset differs from the streaming profile")
+	}
+	if length > 4<<20 || members > 2048 {
+		return errors.New("XLSX directory exceeds streaming metadata capacity")
+	}
+	position, limit := directory, directory+length
+	for i := 0; i < members; i++ {
+		_, next, err := readCentralRecord(file, position, limit)
+		if err != nil {
+			return err
+		}
+		position = next
+	}
+	if position != limit {
+		return errors.New("ZIP directory member coverage differs")
+	}
+	return nil
+}
+
+func readCentralRecord(file *os.File, position, limit int64) (int64, int64, error) {
+	var header [46]byte
+	if position > limit-int64(len(header)) {
+		return 0, 0, errors.New("ZIP central record exceeds directory")
+	}
+	if _, err := file.ReadAt(header[:], position); err != nil {
+		return 0, 0, err
+	}
+	if binary.LittleEndian.Uint32(header[:]) != 0x02014b50 {
+		return 0, 0, errors.New("ZIP central record is malformed")
+	}
+	next := position + int64(len(header)) + int64(binary.LittleEndian.Uint16(header[28:])) + int64(binary.LittleEndian.Uint16(header[30:])) + int64(binary.LittleEndian.Uint16(header[32:]))
+	if next > limit {
+		return 0, 0, errors.New("ZIP central record exceeds directory")
+	}
+	offset := int64(binary.LittleEndian.Uint32(header[42:]))
+	if offset == 0xffffffff {
+		return 0, 0, errors.New("ZIP local offset exceeds file bound")
+	}
+	return offset, next, nil
+}
+
+// compressedBounds rejects member extents outside their local record or directory.
+func compressedBounds(file *os.File, directory, directorySize, base int64, entries []*zip.File) error {
 	type extent struct{ header, data, end int64 }
 	ranges := make([]extent, 0, len(entries))
 	position := directory
 	for _, entry := range entries {
-		var header [46]byte
-		if _, err := file.ReadAt(header[:], position); err != nil {
+		offset, next, err := readCentralRecord(file, position, directory+directorySize)
+		if err != nil {
 			return err
-		}
-		if binary.LittleEndian.Uint32(header[:]) != 0x02014b50 {
-			return errors.New("ZIP central record is malformed")
-		}
-		offset := int64(binary.LittleEndian.Uint32(header[42:]))
-		if offset == 0xffffffff {
-			return errors.New("ZIP local offset exceeds file bound")
 		}
 		local := base + offset
 		data, err := entry.DataOffset()
@@ -70,10 +109,7 @@ func compressedBounds(path string, size int64, entries []*zip.File) error {
 			return errors.New("ZIP compressed member exceeds archive extent")
 		}
 		ranges = append(ranges, extent{local, data, data + int64(entry.CompressedSize64)})
-		position += 46 + int64(binary.LittleEndian.Uint16(header[28:])) + int64(binary.LittleEndian.Uint16(header[30:])) + int64(binary.LittleEndian.Uint16(header[32:]))
-		if position > directory+directorySize {
-			return errors.New("ZIP central record exceeds directory")
-		}
+		position = next
 	}
 	if position != directory+directorySize {
 		return errors.New("ZIP directory member coverage differs")
@@ -90,17 +126,26 @@ func compressedBounds(path string, size int64, entries []*zip.File) error {
 	return nil
 }
 
-func validateXMLPart(ctx context.Context, entry *zip.File) error {
+func validateXMLPart(ctx context.Context, entry *zip.File, bounded bool) error {
 	stream, err := entry.Open()
 	if err != nil {
 		return err
 	}
 	defer stream.Close()
-	decoder := xml.NewDecoder(stream)
+	var reader io.Reader = stream
+	var window *xmlWindow
+	if bounded {
+		window = newXMLWindow(stream)
+		reader = window
+	}
+	decoder := xml.NewDecoder(reader)
 	depth, roots := 0, 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if window != nil {
+			window.remaining = maxXMLTokenSize
 		}
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -134,6 +179,9 @@ func validateXMLPart(ctx context.Context, entry *zip.File) error {
 				attrs[attr.Name] = true
 			}
 			depth++
+			if bounded && depth > maxXMLDepth {
+				return errors.New("XLSX XML exceeds nesting capacity")
+			}
 		case xml.EndElement:
 			depth--
 		case xml.CharData:

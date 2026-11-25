@@ -26,19 +26,7 @@ func (source Source) Visit(ctx context.Context, visitor func(Sheet) error) error
 	if source == nil || visitor == nil {
 		return errors.New("worksheet source and visitor are required")
 	}
-	var rejected error
-	produced := source(ctx, func(sheet Sheet) error {
-		if rejected != nil {
-			return rejected
-		}
-		if err := ctx.Err(); err != nil {
-			rejected = err
-			return rejected
-		}
-		rejected = errors.Join(visitor(sheet), ctx.Err())
-		return rejected
-	})
-	return errors.Join(rejected, produced, ctx.Err())
+	return visitOrdered(ctx, source, visitor)
 }
 
 // FromSheets adapts caller-owned snapshots without cloning slices, rows or maps.

@@ -71,3 +71,29 @@ prefix and a stable short SHA-256 suffix of the full original identity. Callers
 must check global case-insensitive name uniqueness, including other groups and
 possible short-hash collisions; the helper does not reserve names. Saved
 validation independently rejects duplicate identities.
+
+## Replayable row sources
+
+Version 0.5.0 adds `table.RowSheets` for workbooks with large worksheets.
+Each `table.RowSheet` provides its name, headers and a restartable body source.
+The source passes one borrowed `table.Row` at a time in worksheet order.
+`NumericCells` keys are zero-based column indexes, and unmarked cells remain
+literal text. A row's values and numeric map may be reused after the callback
+returns. `table.RowsFromSheet` adapts a smaller in-memory sheet for use in the
+same workbook.
+
+A compatible streaming backend writes the headers and consumes the body with
+`RowSheet.Visit`. The visitor receives physical worksheet indexes starting at
+2. Use the same deterministic source with `publication.PublishRows` to verify
+and install the saved workbook, or `validation.ValidateRows` for an existing
+file. Production and validation must stop on errors and honor cancellation.
+
+The expected and saved worksheet bodies are processed one row at a time.
+The validator still holds bounded package metadata and any shared-string table;
+inline strings keep large worksheet data out of that table. ZIP parts and
+32-bit file offsets remain bounded, with up to 2,048 parts, a 4 MiB ZIP
+directory and 128 MiB aggregate expanded metadata. The package uses unprefixed ZIP offsets with no ZIP comment or unreferenced worksheet parts. XML tokens and saved rows have
+4 MiB and 16 MiB byte limits respectively, and XML nesting is limited to 256.
+Worksheet parts can exceed the legacy 128 MiB expanded package limit. Excel's
+physical dimensions and the literal cell character limit still apply. The
+existing slice and sheet-source APIs retain their limits.
